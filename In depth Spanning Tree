@@ -1,0 +1,131 @@
+Classic Spanning tree - STP Protocol
+---------------------------------------------
+
+
+
+
+32768 | 16384 | 8192 | 4096 |||| 2048| 1024 | 512 | 256 | 128 | 64 | 32 | 16 | 8 | 4 | 2 | 1
+ 
+## Root bridge election : => 
+
+- Compare PRIORITY 
+- Compare MAC addr
+
+## Root port election : =>
+
+- Lowest root cost
+- Lowest neighbor bridge ID
+- Lowest neighbor port ID
+
+	### Root cost :
+
+	- 10 mbps : Ethernet port => 100 
+	- 100 mbps : FastEthernet port => 19
+	- 1 Gbps : GigaEthernet => 4
+	- 10 Gbps => 2 
+ 
+## Designated port selection 
+
+Each remaining collision domain has one designated port, the other must be non-designated 
+
+- Interface on switch with lowest root cost
+- Inteface on switch with lowest bridge ID
+
+## STP states 
+
+- Blocking : Stable
+- Listening : transitional
+- Learning : Transitional
+- Forwarding : Stable
+
+Listening and learning are states where an interface is activated or when a blocking state is passing to a Forwarding state due to a change in the topology 
+
+	### Blocking state 
+	
+	- Interface in blocking state are effectively disabled to prevent loops
+	- ... do not send or receive regular traffic
+	- ... do receive STP BPDUs but do not forward them 
+	- ... do not learn MAC addr 
+	
+	### Listening  
+
+	- 15 seconds long by default , Forward delay
+	- ... do only receive/ forward receives STP BPDUs
+	- ... do not send/receive regular traffic 
+	- ... do not learn MAC addr
+
+	### Learning
+	
+	- 15 s
+	- ... do only receive/forward regular traffic 
+	- ... do not send/receive regular traffic
+	- ... learns MAC addr from regular traffic
+
+	
+	### Forwarding
+
+	- it can do everything listed above 
+
+## STP timers 
+
+- Hello : Only root bridge sends hello BPDUs each 2 sec
+- Forward delay : Duration that the switch takes for the listening and learning states 15 sec for each states
+- Max age : Duration the inteface will wait to change the STP topology after ceasing to receive hello BPDUs. The timer is reset every time a BPDU is received => 20 sec (10*HEllo)
+
+If another BPDU is received before the max age timer counts down to 0 the time will reset to 20 seconds and no changes will occur
+
+IF another BPDU is not received, the max age timer counts down to 0 and the switch will reevaluates its STP choices including root bridge and local root designated and non designated ports
+
+If a non designated port is selected to become designated or root port, it will transition from blockiing state to listening state 15 s, leaning 15 s and then finally the forwarding state. Total of 50 seconds 
+
+### Portfast 
+
+Skip listening and learning states, only for interfaces connected to end hosts
+
+Solution : BPDU guard => if enabled on an interface and it recerived a BPDU from another switch, it will be shutdown to prevent a loop 
+
+- Root guard
+- Loop guard 
+
+# UplinkFast
+
+Enable on switches that have at least one blocked port (spanning-tree) as backup.
+In case the Forwarding port goes down the bocked port takes over.
+You have to wait for 15s list + 15s learngin to fail over
+Thats why enabling uplink fast will skip all these phases and directly turn the blocked => Forwarding
+
+# PortFast
+
+1/ Client connected to edgeswitch , every time clinet turn on their pc => the interface goes up
+It will go through lis + learn phases 
+It will take time everytime client goes up 
+
+2/en a switch at the edge (access switches) connected to client in g0/0 for example 
+G0/0 is down => EdgeSwitch will send BPDUs across the net to the root for topology changes
+The root once receiving will tell all switches to flush their mac address table
+
+=> in g0/0 => spanning-tree portfast => 1/ Directly to FWD 2/ no longer sending TCN BPDUs to root 
+Or spanning-tree portfast default global mode (conf t) 
+--- you can disable portfast on a specific port => like g0/3 spanning-tree portfast disable
+
+# BPDUs Filtering
+
+In access ports where potfast is enabled,no need to send bpdus to client 
+
+show spanning-tree vlan 10 int g0/0 detail => check bpdus sent
+
+spanning-tree portfast bpdufilter enable
+
+# RootGuard
+
+YOU can let one bridge to be root(sw1) even if there's aanother one with a lower priority(sw3)
+By enabling rootguard on interfaces on neighbor of sw3 in where it will send pbdus to tell him that im the root to not accepting them and only let sw1 to be root (prevent from being root ports)
+
+On = int g1/1, g2/2= spanning-tree guard root
+
+# Rapid STP
+
+
+spanning -tree vlan 10 priority <number>
+
+
